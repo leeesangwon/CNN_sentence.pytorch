@@ -32,12 +32,13 @@ class PretrainedWord2Vec(object):
         w2v_file: path to `GoogleNews-vectors-negative300.bin`
     """
     def __init__(self, total_word_list, w2v_file):
-        word2vec_dict, self.word_vec_size = load_bin_word2vec(w2v_file, total_word_list)
+        vocab = set(total_word_list)
+        word2vec_dict, self.word_vec_size = load_bin_word2vec(w2v_file, vocab)
 
         self.word2index = {}
         self.num_oov = 0
         embeddings = []
-        for i, word in enumerate(total_word_list):
+        for i, word in enumerate(vocab):
             self.word2index[word] = i
             try:
                 vec = word2vec_dict[word]
