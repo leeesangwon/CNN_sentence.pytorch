@@ -2,7 +2,7 @@ import unittest
 
 import torch
 
-from ..cnn import CNN, _CNN
+from ..cnn import CNN, CNNMultiChannel, _CNN, _CNNMultiChannel
 from src.pretrained_word2vec import PretrainedWord2Vec
 from src.pretrained_word2vec.tests.test_pretrained_word2vec import W2V_FILE
 
@@ -24,6 +24,21 @@ class CNNTest(unittest.TestCase):
         word_list = ['head', 'body', 'hand', 'foot']
         pretrained_word2vec = PretrainedWord2Vec(word_list, W2V_FILE)
         cnn = CNN(num_classes, pretrained_word2vec, use_pretrained, freeze)
+        sentences = [['head', 'body', 'hand', 'hand', 'foot', 'foot'],
+                     ['body', 'head']]
+        pred = cnn(sentences)
+        self.assertEqual(list(pred.shape), [len(sentences), num_classes])
+
+
+class CNNMultiChannelTest(unittest.TestCase):
+    def test_output_shape(self):
+        self._test_output_shape()
+        self._test_output_shape(5)
+
+    def _test_output_shape(self, num_classes=2):
+        word_list = ['head', 'body', 'hand', 'foot']
+        pretrained_word2vec = PretrainedWord2Vec(word_list, W2V_FILE)
+        cnn = CNNMultiChannel(num_classes, pretrained_word2vec)
         sentences = [['head', 'body', 'hand', 'hand', 'foot', 'foot'],
                      ['body', 'head']]
         pred = cnn(sentences)
@@ -62,6 +77,16 @@ class _CNNTest(unittest.TestCase):
     @staticmethod
     def _define_cnn(in_features=300, out_features=2, filter_windows=(3, 4, 5), num_filter=100, drop_rate=0.5):
         return _CNN(in_features, out_features, filter_windows, num_filter, drop_rate)
+
+
+class _CNNMultiChannelTest(_CNNTest):
+    @staticmethod
+    def _define_input(batch, num_word, word_vec_size):
+        return torch.rand(batch, num_word, word_vec_size, 2)
+
+    @staticmethod
+    def _define_cnn(in_features=300, out_features=2, filter_windows=(3, 4, 5), num_filter=100, drop_rate=0.5):
+        return _CNNMultiChannel(in_features, out_features, filter_windows, num_filter, drop_rate)
 
 
 if __name__ == "__main__":
