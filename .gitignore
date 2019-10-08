@@ -108,3 +108,4 @@ venv.bak/
 
 # data
 GoogleNews-vectors-negative300.bin
+data/MR/
