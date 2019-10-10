@@ -52,6 +52,9 @@ def main():
     pretrained_word2vec = PretrainedWord2Vec(vocab, args.w2v_file)
 
     for cv, (train_dataset, val_dataset) in enumerate(zip(train_datasets, val_datasets)):
+        # fix random seed
+        utils.fix_random_seed(seed=1905)
+
         # model
         cnn = get_model(args.model, num_classes, pretrained_word2vec)
         if torch.cuda.is_available():

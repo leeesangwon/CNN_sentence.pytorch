@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from visdom import Visdom
 
 
@@ -73,3 +74,8 @@ class TrainLogger(object):
 
 def is_cuda(module):
     return next(module.parameters()).is_cuda
+
+
+def fix_random_seed(seed=1905):
+    np.random.seed(seed)
+    torch.random.manual_seed(seed)
