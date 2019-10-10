@@ -6,8 +6,6 @@ from torch.utils.data import Dataset
 
 from .utils import clean_str
 
-DATASET_FOLDER = './data/MR'
-
 
 class MovieReview(Dataset):
     """
@@ -52,7 +50,7 @@ class _MovieReview(object):
     clean_string = True
     cv = 10
 
-    def __init__(self, dataset_folder=DATASET_FOLDER, random_seed=1905):
+    def __init__(self, dataset_folder, random_seed=1905):
         super().__init__()
 
         self.dataset_folder = dataset_folder

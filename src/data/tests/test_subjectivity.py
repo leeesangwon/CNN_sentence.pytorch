@@ -5,7 +5,7 @@ import numpy as np
 
 from ..subjectivity import Subjectivity, _Subjectivity
 
-DATASET_FOLDER = os.path.join(os.path.dirname(__file__), '../../../data/Subj')
+DATASET_FOLDER = os.path.join(os.path.dirname(__file__), '../../../resource/Subj')
 np.random.seed(1905)
 
 

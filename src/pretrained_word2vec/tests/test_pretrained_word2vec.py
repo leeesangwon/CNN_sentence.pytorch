@@ -3,7 +3,7 @@ import unittest
 
 from ..pretrained_word2vec import PretrainedWord2Vec
 
-W2V_FILE = os.path.join(os.path.dirname(__file__), '../GoogleNews-vectors-negative300.bin')
+W2V_FILE = os.path.join(os.path.dirname(__file__), '../../../resource/GoogleNews-vectors-negative300.bin')
 
 
 class PretrainedWord2VecTest(unittest.TestCase):

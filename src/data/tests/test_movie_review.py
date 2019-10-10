@@ -5,7 +5,7 @@ import numpy as np
 
 from ..movie_reviews import MovieReview, _MovieReview
 
-DATASET_FOLDER = os.path.join(os.path.dirname(__file__), '../../../data/MR')
+DATASET_FOLDER = os.path.join(os.path.dirname(__file__), '../../../resource/MR')
 np.random.seed(1905)
 
 
