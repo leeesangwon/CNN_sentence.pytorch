@@ -1,6 +1,7 @@
 import torch
 from torch import nn
-from copy import deepcopy
+
+from utils import is_cuda
 
 
 class Sentence2Mat(nn.Module):
@@ -26,4 +27,6 @@ class Sentence2Mat(nn.Module):
         for word in sentence:
             indexes.append(self.word2index[word])
         indexes = torch.LongTensor(indexes)
+        if is_cuda(self):
+            indexes = indexes.cuda()
         return self.index2vec(indexes)

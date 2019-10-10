@@ -3,6 +3,7 @@
 import torch
 from torch import nn
 
+from utils import is_cuda
 from .sentence2matrix import Sentence2Mat
 
 
@@ -38,6 +39,9 @@ class CNN(nn.Module):
         sentence_tensor = torch.zeros(batch_size, max_len, self.word_vec_size)
         for i, sentence_matrix in enumerate(sentences):
             sentence_tensor[i].narrow(0, 0, sentence_matrix.size(0)).copy_(sentence_matrix)
+
+        if is_cuda(self):
+            sentence_tensor = sentence_tensor.cuda()
 
         x = self.cnn(sentence_tensor)
         return x
@@ -95,9 +99,9 @@ class _CNN(nn.Module):
     """
     def __init__(self, word_vector_size=300, out_features=2, filter_windows=(3, 4, 5), num_filter=100, drop_rate=0.5):
         super().__init__()
-        self.convs = []
+        convs = []
         for h in filter_windows:
-            self.convs.append(
+            convs.append(
                nn.Sequential(
                     nn.Conv1d(
                         in_channels=word_vector_size,
@@ -107,6 +111,7 @@ class _CNN(nn.Module):
                     nn.ReLU(),
                 )
             )
+        self.convs = nn.ModuleList(convs)
         self.max_over_time = nn.AdaptiveMaxPool1d(1)
         self.fcl = nn.Sequential(
             nn.Linear(num_filter*len(filter_windows), out_features),

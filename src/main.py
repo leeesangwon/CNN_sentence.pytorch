@@ -8,6 +8,7 @@ from torch.nn import CrossEntropyLoss
 from data import DATASETS, get_datasets, sentence_collate_fn
 from pretrained_word2vec import PretrainedWord2Vec
 from models import MODELS, get_model
+from utils import is_cuda
 
 
 def get_arguments():
@@ -44,6 +45,8 @@ def main():
     for i, (train_dataset, val_dataset) in enumerate(zip(train_datasets, val_datasets)):
         # model
         cnn = get_model(args.model, num_classes, pretrained_word2vec)
+        if torch.cuda.is_available():
+            cnn.cuda()
 
         # dataloader
         train_loader = DataLoader(train_dataset, args.batch_size, shuffle=True, collate_fn=sentence_collate_fn)
@@ -64,11 +67,18 @@ def train(num_epochs, model, dataloader, optim, criterion):
     model.train()
     for ep in range(num_epochs):
         for i, (sentences, labels) in enumerate(dataloader):
+            if is_cuda(model):
+                labels = labels.cuda()
             optim.zero_grad()
             preds = model(sentences)
             loss = criterion(preds, labels)
             loss.backward()
             optim.step()
+            if i % 10 == 9:
+                total = labels.size(0)
+                correct = (labels == preds.argmax(dim=1)).sum().item()
+                accuracy = 100 * correct / total
+                print('epoch: %d\t iter %4d\t loss: %f\t accuracy: %3.2f' % (ep, i, loss.item(), accuracy))
 
 
 def eval(model, dataloader):
@@ -77,6 +87,8 @@ def eval(model, dataloader):
     total = 0
     with torch.no_grad():
         for sentences, labels in dataloader:
+            if is_cuda(model):
+                labels = labels.cuda()
             preds = model(sentences)
             total += labels.size(0)
             correct += (labels == preds.argmax(dim=1)).sum().item()
