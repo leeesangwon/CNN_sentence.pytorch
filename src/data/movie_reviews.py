@@ -17,13 +17,16 @@ class MovieReview(Dataset):
         sentence: a list of words
         label: 0 for the negative and 1 for the positive
     """
+    cv = 10
+
     def __init__(self, dataset_folder, val_cv=0, is_val=False):
         super().__init__()
 
-        self._dataset = _MovieReview(dataset_folder)
+        self._dataset = _MovieReview(dataset_folder, self.cv)
         self.val_cv = val_cv
         self.is_val = is_val
         self.vocab = self._dataset.vocab
+        self.num_classes = self._dataset.num_classes
 
         if self.is_val:
             self.data = self._dataset.data[val_cv]
@@ -47,13 +50,14 @@ class _MovieReview(object):
     """
     Load data and split into 10 folds.
     """
+    num_classes = 2
     clean_string = True
-    cv = 10
 
-    def __init__(self, dataset_folder, random_seed=1905):
+    def __init__(self, dataset_folder, cv=10, random_seed=1905):
         super().__init__()
 
         self.dataset_folder = dataset_folder
+        self.cv = cv
         self.pos_file = os.path.join(self.dataset_folder, 'rt-polarity.pos')
         self.neg_file = os.path.join(self.dataset_folder, 'rt-polarity.neg')
 
