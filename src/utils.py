@@ -4,8 +4,8 @@ from visdom import Visdom
 
 
 class VisdomLinePlotter(object):
-    def __init__(self, env_name='main'):
-        self.viz = Visdom()
+    def __init__(self, env_name='main', logging_path=None):
+        self.viz = Visdom(log_to_filename=logging_path)
         self.env = env_name
         self.postfix = ''
         self.plots = {}

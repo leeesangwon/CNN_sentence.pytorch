@@ -34,6 +34,7 @@ def get_arguments():
 
     # visdom
     parser.add_argument('--use_visdom', type=bool, default=True)
+    parser.add_argument('--logging_root', type=str, default='./logs')
 
     return parser.parse_args()
 
@@ -48,7 +49,9 @@ def main():
     # visdom
     global plotter
     if args.use_visdom:
-        plotter = utils.VisdomLinePlotter(env_name='CNN_sentence')
+        logging_folder = os.path.join(args.logging_root, args.dataset, args.model)
+        os.makedirs(logging_folder, exist_ok=True)
+        plotter = utils.VisdomLinePlotter(env_name='CNN_sentence', logging_path=os.path.join(logging_folder, 'vis.log'))
     else:
         plotter = None
 
