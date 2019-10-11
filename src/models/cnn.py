@@ -103,22 +103,40 @@ class _CNN(nn.Module):
         super().__init__()
         convs = []
         for h in filter_windows:
+            conv = self._build_conv(word_vector_size, num_filter, h)
             convs.append(
                nn.Sequential(
-                    nn.Conv1d(
-                        in_channels=word_vector_size,
-                        out_channels=num_filter,
-                        kernel_size=h,
-                    ),
-                    nn.ReLU(),
+                    conv,
+                    nn.ReLU(inplace=True),
                 )
             )
         self.convs = nn.ModuleList(convs)
         self.max_over_time = nn.AdaptiveMaxPool1d(1)
+        fcl = self._build_fcl(num_filter*len(filter_windows), out_features)
         self.fcl = nn.Sequential(
-            nn.Linear(num_filter*len(filter_windows), out_features),
+            fcl,
             nn.Dropout(p=drop_rate),
         )
+
+    @staticmethod
+    def _build_conv(in_channels, out_channels, kernel_size, non_linear='relu'):
+        conv = nn.Conv1d(in_channels, out_channels, kernel_size)
+        if non_linear in ['none', 'relu']:
+            nn.init.uniform_(conv.weight, -0.01, 0.01)
+        else:
+            nn.init.xavier_normal_(conv.weight, gain=1.0)
+        nn.init.zeros_(conv.bias)
+        return conv
+
+    @staticmethod
+    def _build_fcl(in_channels, out_channels, non_linear='relu'):
+        fcl = nn.Linear(in_channels, out_channels)
+        if non_linear in ['none', 'relu']:
+            nn.init.normal_(fcl.weight, 0, 0.01)
+        else:
+            nn.init.xavier_normal_(fcl.weight, gain=1.0)
+        nn.init.zeros_(fcl.bias)
+        return fcl
 
     def forward(self, x):
         x = x.transpose(1, 2)         # (batch, word_vec_size, num_word)
