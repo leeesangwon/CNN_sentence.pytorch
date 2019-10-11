@@ -35,6 +35,7 @@ class CNN(nn.Module):
             sentences.append(sentence_matrix)
 
         # zero padding
+        max_len = max(max_len, 5)
         batch_size = len(input_)
         sentence_tensor = torch.zeros(batch_size, max_len, self.word_vec_size)
         for i, sentence_matrix in enumerate(sentences):
@@ -76,6 +77,7 @@ class CNNMultiChannel(nn.Module):
             sentences.append(sentence_matrix)
 
         # zero padding
+        max_len = max(max_len, 5)
         batch_size = len(input_)
         sentence_tensor = torch.zeros(batch_size, max_len, self.word_vec_size, 2)
         for i, sentence_matrix in enumerate(sentences):
