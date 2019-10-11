@@ -1,4 +1,5 @@
 import argparse
+import os
 
 import torch
 from torch.optim.adadelta import Adadelta
@@ -28,6 +29,9 @@ def get_arguments():
     parser.add_argument('--batch_size', type=int, default=50)
     parser.add_argument('--num_epochs', type=int, default=25)
 
+    # outputs
+    parser.add_argument('--output_root', type=str, default='./ckpt')
+
     # visdom
     parser.add_argument('--use_visdom', type=bool, default=True)
 
@@ -37,6 +41,11 @@ def get_arguments():
 def main():
     args = get_arguments()
 
+    # output folder
+    output_folder = os.path.join(args.output_root, args.dataset, args.model)
+    os.makedirs(output_folder, exist_ok=True)
+
+    # visdom
     global plotter
     if args.use_visdom:
         plotter = utils.VisdomLinePlotter(env_name='CNN_sentence')
@@ -70,10 +79,23 @@ def main():
         # criterion
         criterion = CrossEntropyLoss()
 
+        # training
         if plotter:
             plotter.set_cv(cv)
         train(args.num_epochs, cnn, train_loader, optim, criterion)
+
+        # save model
+        output_path = os.path.join(output_folder, 'cv_%d.pkl' % cv)
+        state = {
+            'model': cnn.state_dict(),
+            'optim': optim.state_dict(),
+        }
+        torch.save(state, output_path)
+
+        # evaluation
         accuracy = eval(cnn, val_loader)
+        if plotter:
+            plotter.plot('accuracy', 'test', 'Accuracy', 0, accuracy)
         print('cross_val:', cv, '\taccuracy:', accuracy)
 
 
