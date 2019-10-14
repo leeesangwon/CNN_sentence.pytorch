@@ -116,6 +116,8 @@ def train(num_epochs, model, dataloader, optim, criterion):
             loss.backward()
             optim.step()
 
+            l2_norm_constraint(model, s=3)
+
             logger.update_iter(
                 total=labels.size(0),
                 correct=(labels == preds.argmax(dim=1)).sum().item(),
@@ -137,6 +139,14 @@ def train(num_epochs, model, dataloader, optim, criterion):
             plotter.plot('accuracy', 'epoch', 'Accuracy', total_iter, accuracy)
         else:
             print('epoch: %d\t loss: %f\t accuracy: %3.2f' % (ep, ep_loss, accuracy))
+
+
+def l2_norm_constraint(model, s=3):
+    with torch.no_grad():
+        col_norms = torch.norm(model.cnn.fcl[0].weight, p=2, dim=1, keepdim=True)
+        desired_norms = col_norms.clamp(0, s)
+        scale = (desired_norms / (1e-7 + col_norms))
+        model.cnn.fcl[0].weight *= scale
 
 
 def eval(model, dataloader):
