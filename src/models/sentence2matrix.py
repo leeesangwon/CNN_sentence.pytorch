@@ -18,10 +18,10 @@ class Sentence2Mat(nn.Module):
         super().__init__()
         self.word_vec_size = pretrained_word2vec.word_vec_size
         self.word2index = pretrained_word2vec.word2index
-        self.index2vec = nn.Embedding(len(self.word2index), self.word_vec_size)
         if use_pretrained:
-            self.index2vec.from_pretrained(pretrained_word2vec.embeddings, freeze)
+            self.index2vec = nn.Embedding.from_pretrained(pretrained_word2vec.embeddings, freeze=freeze)
         else:
+            self.index2vec = nn.Embedding(len(self.word2index), self.word_vec_size)
             nn.init.uniform_(self.index2vec.weight, -0.25, 0.25)
 
     def forward(self, sentence):
