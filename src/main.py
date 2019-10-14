@@ -11,9 +11,14 @@ from pretrained_word2vec import PretrainedWord2Vec
 from models import MODELS, get_model
 import utils
 
+plotter = None
+
 
 def get_arguments():
     parser = argparse.ArgumentParser()
+
+    # experiment name
+    parser.add_argument('--exp_name', type=str, default='')
 
     # dataset
     parser.add_argument('--dataset', type=str, choices=DATASETS, default='MR')
@@ -42,18 +47,20 @@ def get_arguments():
 def main():
     args = get_arguments()
 
+    # expriment name
+    if not args.exp_name:
+        args.exp_name = args.model
+
     # output folder
-    output_folder = os.path.join(args.output_root, args.dataset, args.model)
+    output_folder = os.path.join(args.output_root, args.dataset, args.exp_name)
     os.makedirs(output_folder, exist_ok=True)
 
     # visdom
     global plotter
     if args.use_visdom:
-        logging_folder = os.path.join(args.logging_root, args.dataset, args.model)
+        logging_folder = os.path.join(args.logging_root, args.dataset, args.exp_name)
         os.makedirs(logging_folder, exist_ok=True)
-        plotter = utils.VisdomLinePlotter(env_name='CNN_sentence', logging_path=os.path.join(logging_folder, 'vis.log'))
-    else:
-        plotter = None
+        plotter = utils.VisdomLinePlotter(env_name=args.exp_name, logging_path=os.path.join(logging_folder, 'vis.log'))
 
     # dataset
     train_datasets, val_datasets = get_datasets(args.dataset, args.dataset_folder)
@@ -85,7 +92,7 @@ def main():
         # training
         if plotter:
             plotter.set_cv(cv)
-        train(args.num_epochs, cnn, train_loader, optim, criterion)
+        train(args.num_epochs, cnn, train_loader, optim, criterion, val_loader)
 
         # save model
         output_path = os.path.join(output_folder, 'cv_%d.pkl' % cv)
@@ -97,16 +104,14 @@ def main():
 
         # evaluation
         accuracy = eval(cnn, val_loader)
-        if plotter:
-            plotter.plot('accuracy', 'test', 'Accuracy', 0, accuracy)
         print('cross_val:', cv, '\taccuracy:', accuracy)
 
 
-def train(num_epochs, model, dataloader, optim, criterion):
+def train(num_epochs, model, dataloader, optim, criterion, val_loader=None):
     log_freq = 10
     logger = utils.TrainLogger()
-    model.train()
     for ep in range(num_epochs):
+        model.train()
         for i, (sentences, labels) in enumerate(dataloader):
             if utils.is_cuda(model):
                 labels = labels.cuda()
@@ -133,12 +138,23 @@ def train(num_epochs, model, dataloader, optim, criterion):
                     print('epoch: %d\t iter %4d\t loss: %f\t accuracy: %3.2f' % (ep, i, iter_loss, accuracy))
 
         accuracy, ep_loss = logger.get_epoch()
-        if plotter:
-            total_iter = (ep + 1) * len(dataloader)
-            plotter.plot('loss', 'epoch', 'Loss', total_iter, ep_loss)
-            plotter.plot('accuracy', 'epoch', 'Accuracy', total_iter, accuracy)
+        if val_loader is None:
+            if plotter:
+                total_iter = (ep + 1) * len(dataloader)
+                plotter.plot('loss', 'epoch', 'Loss', total_iter, ep_loss)
+                plotter.plot('accuracy', 'epoch', 'Accuracy', total_iter, accuracy)
+            else:
+                print('epoch: %d\t loss: %f\t accuracy: %3.2f' % (ep, ep_loss, accuracy))
         else:
-            print('epoch: %d\t loss: %f\t accuracy: %3.2f' % (ep, ep_loss, accuracy))
+            accuracy_t = eval(model, val_loader)
+            if plotter:
+                total_iter = (ep + 1) * len(dataloader)
+                plotter.plot('loss', 'epoch', 'Loss', total_iter, ep_loss)
+                plotter.plot('accuracy', 'epoch', 'Accuracy', total_iter, accuracy)
+                plotter.plot('accuracy', 'test', 'Accuracy', total_iter, accuracy_t)
+            else:
+                print('epoch: %d\t loss: %f\t accuracy: %3.2f\t test accuracy: %3.2f'
+                      % (ep, ep_loss, accuracy, accuracy_t))
 
 
 def l2_norm_constraint(model, s=3):
