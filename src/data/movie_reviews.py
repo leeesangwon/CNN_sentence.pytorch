@@ -1,5 +1,6 @@
 import os
 from collections import defaultdict
+import random
 
 import numpy as np
 from torch.utils.data import Dataset
@@ -19,31 +20,55 @@ class MovieReview(Dataset):
     """
     cv = 10
 
-    def __init__(self, dataset_folder, val_cv=0, is_val=False):
+    def __init__(self, dataset_folder, batch_size, test_cv=0, type='train', random_seed=1905):
         super().__init__()
 
-        self._dataset = _MovieReview(dataset_folder, self.cv)
-        self.val_cv = val_cv
-        self.is_val = is_val
+        self._dataset = _MovieReview(dataset_folder, self.cv, random_seed=random_seed)
+        self.test_cv = test_cv
+        self.type = type.lower()
+        if self.type not in ['train', 'val', 'test']:
+            raise ValueError("Invalid dataset type: %s" % type)
         self.vocab = self._dataset.vocab
         self.num_classes = self._dataset.num_classes
 
-        if self.is_val:
-            self.data = self._dataset.data[val_cv]
+        self._split_data(batch_size, random_seed)
+
+    def _split_data(self, batch_size, random_seed):
+        train_data, test_data = [], []
+        for i, datum in enumerate(self._dataset.data):
+            if datum['split'] == self.test_cv:
+                test_data.append(i)
+            else:
+                train_data.append(i)
+
+        random.seed(random_seed)
+        if len(train_data) % batch_size > 0:
+            extra_data_num = batch_size - len(train_data) % batch_size
+            random.shuffle(train_data)
+            extra_data = train_data[:extra_data_num]
+            new_data = train_data + extra_data
         else:
-            self.data = []
-            for i, data in enumerate(self._dataset.data):
-                if i == val_cv:
-                    continue
-                self.data.extend(data)
+            new_data = train_data
+        random.shuffle(new_data)
+        n_batches = len(new_data) / batch_size
+        n_train_batches = int(round(n_batches * 0.9))
+        train_data = new_data[:n_train_batches * batch_size]
+        val_data = new_data[n_train_batches * batch_size:]
+
+        if self.type == 'train':
+            self.indexes = train_data
+        elif self.type == 'val':
+            self.indexes = val_data
+        else:  # test
+            self.indexes = test_data
 
     def __getitem__(self, idx):
-        label = self.data[idx]['y']
-        sentence = self.data[idx]['text'].split()
+        label = self._dataset.data[self.indexes[idx]]['y']
+        sentence = self._dataset.data[self.indexes[idx]]['text'].split()
         return sentence, label
 
     def __len__(self):
-        return len(self.data)
+        return len(self.indexes)
 
 
 class _MovieReview(object):
@@ -63,7 +88,7 @@ class _MovieReview(object):
 
         np.random.seed(random_seed)
         self.vocab = defaultdict(int)
-        self.data = [[] for _ in range(self.cv)]
+        self.data = []
         self._read_datafile(self.pos_file, is_pos=True)
         self._read_datafile(self.neg_file, is_pos=False)
 
@@ -83,12 +108,10 @@ class _MovieReview(object):
                 datum = {
                     'y': 1 if is_pos else 0,
                     'text': orig_sentence,
-                    'num_words': len(orig_sentence.split())
+                    'num_words': len(orig_sentence.split()),
+                    'split': split,
                 }
-                self.data[split].append(datum)
+                self.data.append(datum)
 
     def __len__(self):
-        num_data = 0
-        for data in self.data:
-            num_data += len(data)
-        return num_data
+        return len(self.data)

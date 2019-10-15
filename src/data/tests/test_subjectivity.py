@@ -11,18 +11,21 @@ np.random.seed(1905)
 
 class SubjectivityTest(unittest.TestCase):
     def test_train_set(self):
-        subjectivity = Subjectivity(DATASET_FOLDER, val_cv=0, is_val=False)
-        sentence_to_check = np.random.randint(0, len(subjectivity), 10)
-        for i in sentence_to_check:
-            sentence, label = subjectivity[i]
-            print(label, sentence)
-            self._check_sentence_type(sentence)
+        subjectivity = Subjectivity(DATASET_FOLDER,  batch_size=1, test_cv=0, type='train')
+        self._test_dataset(subjectivity)
 
     def test_val_set(self):
-        subjectivity = Subjectivity(DATASET_FOLDER, val_cv=0, is_val=True)
-        sentence_to_check = np.random.randint(0, len(subjectivity), 10)
+        subjectivity = Subjectivity(DATASET_FOLDER,  batch_size=1, test_cv=0, type='val')
+        self._test_dataset(subjectivity)
+
+    def test_test_set(self):
+        subjectivity = Subjectivity(DATASET_FOLDER,  batch_size=1, test_cv=0, type='test')
+        self._test_dataset(subjectivity)
+
+    def _test_dataset(self, dataset):
+        sentence_to_check = np.random.randint(0, len(dataset), 10)
         for i in sentence_to_check:
-            sentence, label = subjectivity[i]
+            sentence, label = dataset[i]
             print(label, sentence)
             self._check_sentence_type(sentence)
 
@@ -36,10 +39,6 @@ class _SubjectivityTest(unittest.TestCase):
     def test_len_data(self):
         _subjectivity = _Subjectivity(DATASET_FOLDER)
         self.assertEqual(len(_subjectivity), 10000)
-        self.assertEqual(len(_subjectivity.data), _subjectivity.cv)
-        print('length of each fold:')
-        for data in _subjectivity.data:
-            print(len(data), end='\t')
 
     def test_vocab(self):
         _subjectivity = _Subjectivity(DATASET_FOLDER)

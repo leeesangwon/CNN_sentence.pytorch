@@ -11,18 +11,21 @@ np.random.seed(1905)
 
 class MovieReviewTest(unittest.TestCase):
     def test_train_set(self):
-        movie_review = MovieReview(DATASET_FOLDER, val_cv=0, is_val=False)
-        sentence_to_check = np.random.randint(0, len(movie_review), 10)
-        for i in sentence_to_check:
-            sentence, label = movie_review[i]
-            print(label, sentence)
-            self._check_sentence_type(sentence)
+        movie_review = MovieReview(DATASET_FOLDER, batch_size=1, test_cv=0, type='train')
+        self._test_dataset(movie_review)
 
     def test_val_set(self):
-        movie_review = MovieReview(DATASET_FOLDER, val_cv=0, is_val=True)
-        sentence_to_check = np.random.randint(0, len(movie_review), 10)
+        movie_review = MovieReview(DATASET_FOLDER, batch_size=1, test_cv=0, type='val')
+        self._test_dataset(movie_review)
+
+    def test_test_set(self):
+        movie_review = MovieReview(DATASET_FOLDER, batch_size=1, test_cv=0, type='test')
+        self._test_dataset(movie_review)
+
+    def _test_dataset(self, dataset):
+        sentence_to_check = np.random.randint(0, len(dataset), 10)
         for i in sentence_to_check:
-            sentence, label = movie_review[i]
+            sentence, label = dataset[i]
             print(label, sentence)
             self._check_sentence_type(sentence)
 
@@ -36,10 +39,6 @@ class _MovieReviewTest(unittest.TestCase):
     def test_len_data(self):
         _movie_review = _MovieReview(DATASET_FOLDER)
         self.assertEqual(len(_movie_review), 10662)
-        self.assertEqual(len(_movie_review.data), _movie_review.cv)
-        print('length of each fold:')
-        for data in _movie_review.data:
-            print(len(data), end='\t')
 
     def test_vocab(self):
         _movie_review = _MovieReview(DATASET_FOLDER)

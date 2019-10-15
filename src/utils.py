@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import torch
 from visdom import Visdom
@@ -57,15 +59,20 @@ class TrainLogger(object):
 
     def get_iter(self):
         accuracy = 100 * self.iter_correct / self.iter_total
-        self.ep_total += self.iter_total
-        self.ep_correct += self.iter_correct
         loss = self.iter_loss / self.iter_count
-        self.ep_loss += self.iter_loss
-        self.ep_count += self.iter_count
+        self._update_epoch()
         self._init_iter()
         return accuracy, loss
 
+    def _update_epoch(self):
+        self.ep_total += self.iter_total
+        self.ep_correct += self.iter_correct
+        self.ep_loss += self.iter_loss
+        self.ep_count += self.iter_count
+
     def get_epoch(self):
+        self._update_epoch()
+        self._init_iter()
         accuracy = 100 * self.ep_correct / self.ep_total
         loss = self.ep_loss / self.ep_count
         self._init_epoch()
@@ -77,5 +84,6 @@ def is_cuda(module):
 
 
 def fix_random_seed(seed=1905):
+    random.seed(seed)
     np.random.seed(seed)
     torch.random.manual_seed(seed)

@@ -35,11 +35,11 @@ def get_arguments():
     parser.add_argument('--num_epochs', type=int, default=25)
 
     # outputs
-    parser.add_argument('--output_root', type=str, default='./ckpt')
+    parser.add_argument('--output_root', type=str, default='../ckpt')
 
     # visdom
     parser.add_argument('--use_visdom', type=bool, default=True)
-    parser.add_argument('--logging_root', type=str, default='./logs')
+    parser.add_argument('--logging_root', type=str, default='../logs')
 
     return parser.parse_args()
 
@@ -49,7 +49,7 @@ def main():
 
     # expriment name
     if not args.exp_name:
-        args.exp_name = args.model
+        args.exp_name = '_'.join([args.dataset, args.model])
 
     # output folder
     output_folder = os.path.join(args.output_root, args.dataset, args.exp_name)
@@ -63,14 +63,14 @@ def main():
         plotter = utils.VisdomLinePlotter(env_name=args.exp_name, logging_path=os.path.join(logging_folder, 'vis.log'))
 
     # dataset
-    train_datasets, val_datasets = get_datasets(args.dataset, args.dataset_folder)
+    train_datasets, val_datasets, test_datasets = get_datasets(args.dataset, args.dataset_folder, args.batch_size)
     num_classes = train_datasets[0].num_classes
     vocab = train_datasets[0].vocab  # every datasets have same vocab
 
     # pre-trained word2vec
     pretrained_word2vec = PretrainedWord2Vec(vocab, args.w2v_file)
 
-    for cv, (train_dataset, val_dataset) in enumerate(zip(train_datasets, val_datasets)):
+    for cv, (train_dataset, val_dataset, test_dataset) in enumerate(zip(train_datasets, val_datasets, test_datasets)):
         # fix random seed
         utils.fix_random_seed(seed=1905)
 
@@ -81,7 +81,8 @@ def main():
 
         # dataloader
         train_loader = DataLoader(train_dataset, args.batch_size, shuffle=True, collate_fn=sentence_collate_fn)
-        val_loader = DataLoader(val_dataset, batch_size=4, shuffle=False, collate_fn=sentence_collate_fn)
+        val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, collate_fn=sentence_collate_fn)
+        test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=sentence_collate_fn)
 
         # optimizer
         optim = Adadelta(cnn.parameters(), rho=0.95, eps=1e-6)
@@ -92,24 +93,20 @@ def main():
         # training
         if plotter:
             plotter.set_cv(cv)
-        train(args.num_epochs, cnn, train_loader, optim, criterion, val_loader)
-
-        # save model
-        output_path = os.path.join(output_folder, 'cv_%d.pkl' % cv)
-        state = {
-            'model': cnn.state_dict(),
-            'optim': optim.state_dict(),
-        }
-        torch.save(state, output_path)
+        output_path = os.path.join(output_folder, 'cv_%d_best.pkl' % cv)
+        train(args.num_epochs, cnn, train_loader, optim, criterion, val_loader, output_path)
 
         # evaluation
-        accuracy = eval(cnn, val_loader)
+        state_dict = torch.load(output_path)
+        cnn.load_state_dict(state_dict['model'])
+        accuracy = eval(cnn, test_loader)
         print('cross_val:', cv, '\taccuracy:', accuracy)
 
 
-def train(num_epochs, model, dataloader, optim, criterion, val_loader=None):
-    log_freq = 10
+def train(num_epochs, model, dataloader, optim, criterion, val_loader, output_path):
+    log_freq = 300
     logger = utils.TrainLogger()
+    best_val_accuracy = 0
     for ep in range(num_epochs):
         model.train()
         for i, (sentences, labels) in enumerate(dataloader):
@@ -128,33 +125,33 @@ def train(num_epochs, model, dataloader, optim, criterion, val_loader=None):
                 correct=(labels == preds.argmax(dim=1)).sum().item(),
                 loss=loss.item()
             )
-            if i % log_freq == log_freq - 1:
-                accuracy, iter_loss = logger.get_iter()
-                if plotter:
-                    total_iter = ep * len(dataloader) + i
-                    plotter.plot('loss', 'iter', 'Loss', total_iter, iter_loss)
-                    plotter.plot('accuracy', 'iter', 'Accuracy', total_iter, accuracy)
-                else:
-                    print('epoch: %d\t iter %4d\t loss: %f\t accuracy: %3.2f' % (ep, i, iter_loss, accuracy))
+            # if i % log_freq == log_freq - 1:
+            #     accuracy, iter_loss = logger.get_iter()
+            #     if plotter:
+            #         total_iter = ep * len(dataloader) + i
+            #         plotter.plot('loss', 'iter', 'Loss', total_iter, iter_loss)
+            #         plotter.plot('accuracy', 'iter', 'Accuracy', total_iter, accuracy)
+            #     else:
+            #         print('epoch: %d\t iter %4d\t loss: %f\t accuracy: %3.2f' % (ep, i, iter_loss, accuracy))
 
         accuracy, ep_loss = logger.get_epoch()
-        if val_loader is None:
-            if plotter:
-                total_iter = (ep + 1) * len(dataloader)
-                plotter.plot('loss', 'epoch', 'Loss', total_iter, ep_loss)
-                plotter.plot('accuracy', 'epoch', 'Accuracy', total_iter, accuracy)
-            else:
-                print('epoch: %d\t loss: %f\t accuracy: %3.2f' % (ep, ep_loss, accuracy))
+        val_accuracy = eval(model, val_loader)
+        if val_accuracy >= best_val_accuracy:
+            best_val_accuracy = val_accuracy
+            state = {
+                'model': model.state_dict(),
+                'optim': optim.state_dict(),
+                'ep': ep + 1,
+            }
+            torch.save(state, output_path)
+        if plotter:
+            total_iter = (ep + 1) * len(dataloader)
+            plotter.plot('loss', 'epoch', 'Loss', total_iter, ep_loss)
+            plotter.plot('accuracy', 'epoch', 'Accuracy', total_iter, accuracy)
+            plotter.plot('accuracy', 'val', 'Accuracy', total_iter, val_accuracy)
         else:
-            accuracy_t = eval(model, val_loader)
-            if plotter:
-                total_iter = (ep + 1) * len(dataloader)
-                plotter.plot('loss', 'epoch', 'Loss', total_iter, ep_loss)
-                plotter.plot('accuracy', 'epoch', 'Accuracy', total_iter, accuracy)
-                plotter.plot('accuracy', 'test', 'Accuracy', total_iter, accuracy_t)
-            else:
-                print('epoch: %d\t loss: %f\t accuracy: %3.2f\t test accuracy: %3.2f'
-                      % (ep, ep_loss, accuracy, accuracy_t))
+            print('epoch: %d\t loss: %f\t accuracy: %3.2f\t test accuracy: %3.2f'
+                  % (ep, ep_loss, accuracy, val_accuracy))
 
 
 def l2_norm_constraint(model, s=3):
