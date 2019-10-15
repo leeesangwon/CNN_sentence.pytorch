@@ -83,6 +83,9 @@ class CNNMultiChannel(nn.Module):
         for i, sentence_matrix in enumerate(sentences):
             sentence_tensor[i].narrow(0, 0, sentence_matrix.size(0)).copy_(sentence_matrix)
 
+        if is_cuda(self):
+            sentence_tensor = sentence_tensor.cuda()
+
         x = self.cnn(sentence_tensor)
         return x
 
