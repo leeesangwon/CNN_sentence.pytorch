@@ -1,5 +1,3 @@
-# TODO: Create L2 constraint
-
 import torch
 from torch import nn
 
