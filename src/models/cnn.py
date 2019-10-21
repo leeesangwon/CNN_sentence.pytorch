@@ -24,6 +24,14 @@ class CNN(nn.Module):
         self.cnn = _CNN(self.word_vec_size, num_classes)
 
     def forward(self, input_):
+        sentence_tensor = self.generate_sentence_tensor(input_)
+        if is_cuda(self):
+            sentence_tensor = sentence_tensor.cuda()
+
+        x = self.cnn(sentence_tensor)
+        return x
+
+    def generate_sentence_tensor(self, input_):
         sentences = []
         max_len = 0
         for words in input_:
@@ -39,11 +47,7 @@ class CNN(nn.Module):
         for i, sentence_matrix in enumerate(sentences):
             sentence_tensor[i].narrow(0, 0, sentence_matrix.size(0)).copy_(sentence_matrix)
 
-        if is_cuda(self):
-            sentence_tensor = sentence_tensor.cuda()
-
-        x = self.cnn(sentence_tensor)
-        return x
+        return sentence_tensor
 
 
 class CNNMultiChannel(nn.Module):
