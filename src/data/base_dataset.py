@@ -2,7 +2,7 @@ from collections import defaultdict
 
 import constants as const
 from utils import fix_random_seed
-from data.utils import clean_str
+from data.utils import clean_str, clean_str_sst
 
 
 class _BaseDataset(object):
@@ -11,8 +11,10 @@ class _BaseDataset(object):
     """
     clean_string = True
 
-    def __init__(self, dataset_file):
+    def __init__(self, dataset_file, is_sst=False, is_trec=False):
         super().__init__()
+        self.is_sst = is_sst
+        self.is_trec = is_trec
         self.vocab = defaultdict(int)
         self.data = []
         self._read_datafile(dataset_file)
@@ -26,8 +28,10 @@ class _BaseDataset(object):
                 label_set.add(label)
                 sentence = ' '.join(sentence.split()[1:])
 
-                if self.clean_string:
-                    orig_sentence = clean_str(sentence)
+                if self.is_sst:
+                    orig_sentence = clean_str_sst(sentence)
+                elif self.clean_string:
+                    orig_sentence = clean_str(sentence, TREC=self.is_trec)
                 else:
                     orig_sentence = sentence.lower()
                 words = set(orig_sentence.split())

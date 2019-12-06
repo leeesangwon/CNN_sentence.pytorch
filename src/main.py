@@ -71,7 +71,9 @@ def main():
     print("# Load datasets")
     train_datasets, val_datasets, test_datasets = get_datasets(args.dataset, args.dataset_folder, args.batch_size)
     num_classes = train_datasets[0].num_classes
-    vocab = train_datasets[0].vocab  # every datasets have same vocab
+    vocab = set(train_datasets[0].vocab)
+    vocab = vocab.union(set(val_datasets[0].vocab))
+    vocab = vocab.union(set(test_datasets[0].vocab))
 
     # pre-trained word2vec
     print("# Load pre-trained word2vec")

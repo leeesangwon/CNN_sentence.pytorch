@@ -4,7 +4,7 @@ from torch.utils.data import Dataset
 import numpy as np
 
 import constants as const
-from utils import fix_random_seed
+from utils import fix_random_seed, split_dev_data
 from .base_dataset import _BaseDataset
 
 
@@ -13,7 +13,7 @@ class CrossValDataset(Dataset):
 
     def __init__(self, dataset, batch_size, test_cv=0, type='train', random_seed=const.RANDOM_SEED):
         """
-
+        Cross Validation dataset class for 'MR', 'Subj', 'CR', and 'MPQA'
         :param dataset: a _CrossValDataset instance
         :param batch_size: int
         :param test_cv: cv for the test
@@ -49,21 +49,7 @@ class CrossValDataset(Dataset):
 
     @staticmethod
     def _split_dev_data(train_indexes, batch_size, random_seed):
-        random.seed(random_seed)
-        if len(train_indexes) % batch_size > 0:
-            extra_data_num = batch_size - len(train_indexes) % batch_size
-            random.shuffle(train_indexes)
-            extra_data = train_indexes[:extra_data_num]
-            new_data = train_indexes + extra_data
-        else:
-            new_data = train_indexes
-        random.shuffle(new_data)
-        n_batches = len(new_data) / batch_size
-        n_train_batches = int(round(n_batches * 0.9))
-        train_indexes = new_data[:n_train_batches * batch_size]
-        dev_indexes = new_data[n_train_batches * batch_size:]
-
-        return train_indexes, dev_indexes
+        return split_dev_data(train_indexes, batch_size, random_seed)
 
     def __getitem__(self, idx):
         label = self._dataset.data[self.indexes[idx]]['y']
