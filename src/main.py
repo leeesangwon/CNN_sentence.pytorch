@@ -1,5 +1,6 @@
 import argparse
 import os
+import pickle
 
 import torch
 from torch.optim.adadelta import Adadelta
@@ -9,6 +10,7 @@ from torch.nn import CrossEntropyLoss
 from data import DATASETS, get_datasets, sentence_collate_fn
 from pretrained_word2vec import PretrainedWord2Vec
 from models import MODELS, get_model
+import constants as const
 import utils
 
 plotter = None
@@ -22,7 +24,7 @@ def get_arguments():
 
     # dataset
     parser.add_argument('--dataset', type=str, choices=DATASETS, default='MR')
-    parser.add_argument('--dataset_folder', type=str, default='../resource/MR')
+    parser.add_argument('--dataset_folder', type=str, default='../resource/data/MR')
 
     # pre-trained word2vec
     parser.add_argument('--w2v_file', type=str, default='../resource/GoogleNews-vectors-negative300.bin')
@@ -50,10 +52,12 @@ def main():
     # expriment name
     if not args.exp_name:
         args.exp_name = '_'.join([args.dataset, args.model])
+    print("# Experiment: ", args.exp_name)
 
     # output folder
     output_folder = os.path.join(args.output_root, args.dataset, args.exp_name)
     os.makedirs(output_folder, exist_ok=True)
+    print("# Output path: ", output_folder)
 
     # visdom
     global plotter
@@ -61,18 +65,32 @@ def main():
         logging_folder = os.path.join(args.logging_root, args.dataset, args.exp_name)
         os.makedirs(logging_folder, exist_ok=True)
         plotter = utils.VisdomLinePlotter(env_name=args.exp_name, logging_path=os.path.join(logging_folder, 'vis.log'))
+        print("# Visdom path: ", logging_folder)
 
     # dataset
+    print("# Load datasets")
     train_datasets, val_datasets, test_datasets = get_datasets(args.dataset, args.dataset_folder, args.batch_size)
     num_classes = train_datasets[0].num_classes
-    vocab = train_datasets[0].vocab  # every datasets have same vocab
+    vocab = set(train_datasets[0].vocab)
+    vocab = vocab.union(set(val_datasets[0].vocab))
+    vocab = vocab.union(set(test_datasets[0].vocab))
 
     # pre-trained word2vec
-    pretrained_word2vec = PretrainedWord2Vec(vocab, args.w2v_file)
+    print("# Load pre-trained word2vec")
+    pretrained_word2vec_cache = os.path.join(os.path.dirname(args.w2v_file), args.dataset + '_w2v.pkl')
+    if os.path.isfile(pretrained_word2vec_cache):
+        with open(pretrained_word2vec_cache, 'rb') as f:
+            pretrained_word2vec = pickle.load(f)
+    else:
+        pretrained_word2vec = PretrainedWord2Vec(vocab, args.w2v_file)
+        with open(pretrained_word2vec_cache, 'wb') as f:
+            pickle.dump(pretrained_word2vec, f)
 
+    # train
+    print("# Start training")
     for cv, (train_dataset, val_dataset, test_dataset) in enumerate(zip(train_datasets, val_datasets, test_datasets)):
         # fix random seed
-        utils.fix_random_seed(seed=1905)
+        utils.fix_random_seed(seed=const.RANDOM_SEED)
 
         # model
         cnn = get_model(args.model, num_classes, pretrained_word2vec)
@@ -97,14 +115,12 @@ def main():
         train(args.num_epochs, cnn, train_loader, optim, criterion, val_loader, output_path)
 
         # evaluation
-        state_dict = torch.load(output_path)
-        cnn.load_state_dict(state_dict['model'])
+        utils.load_model(output_path, cnn)
         accuracy = eval(cnn, test_loader)
         print('cross_val:', cv, '\taccuracy:', accuracy)
 
 
 def train(num_epochs, model, dataloader, optim, criterion, val_loader, output_path):
-    log_freq = 300
     logger = utils.TrainLogger()
     best_val_accuracy = 0
     for ep in range(num_epochs):
@@ -125,25 +141,12 @@ def train(num_epochs, model, dataloader, optim, criterion, val_loader, output_pa
                 correct=(labels == preds.argmax(dim=1)).sum().item(),
                 loss=loss.item()
             )
-            # if i % log_freq == log_freq - 1:
-            #     accuracy, iter_loss = logger.get_iter()
-            #     if plotter:
-            #         total_iter = ep * len(dataloader) + i
-            #         plotter.plot('loss', 'iter', 'Loss', total_iter, iter_loss)
-            #         plotter.plot('accuracy', 'iter', 'Accuracy', total_iter, accuracy)
-            #     else:
-            #         print('epoch: %d\t iter %4d\t loss: %f\t accuracy: %3.2f' % (ep, i, iter_loss, accuracy))
 
         accuracy, ep_loss = logger.get_epoch()
         val_accuracy = eval(model, val_loader)
         if val_accuracy >= best_val_accuracy:
             best_val_accuracy = val_accuracy
-            state = {
-                'model': model.state_dict(),
-                'optim': optim.state_dict(),
-                'ep': ep + 1,
-            }
-            torch.save(state, output_path)
+            utils.save_model(output_path, model, optim, ep)
         if plotter:
             total_iter = (ep + 1) * len(dataloader)
             plotter.plot('loss', 'epoch', 'Loss', total_iter, ep_loss)

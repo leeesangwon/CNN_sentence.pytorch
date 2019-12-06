@@ -4,6 +4,7 @@ import torch
 
 def load_bin_word2vec(fname, vocab):
     """Loads (300,) np.array from Google (Mikolov) word2vec"""
+    vocab = set(vocab)
     word_vecs = {}
     with open(fname, 'rb') as f:
         header = f.readline()
@@ -28,11 +29,11 @@ def load_bin_word2vec(fname, vocab):
 class PretrainedWord2Vec(object):
     """
     Parameters:
-        total_word_list:
+        vocab:
         w2v_file: path to `GoogleNews-vectors-negative300.bin`
     """
-    def __init__(self, total_word_list, w2v_file):
-        vocab = set(total_word_list)
+    def __init__(self, vocab, w2v_file):
+        vocab = sorted(list(vocab))
         word2vec_dict, self.word_vec_size = load_bin_word2vec(w2v_file, vocab)
 
         self.word2index = {}

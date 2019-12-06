@@ -1,13 +1,18 @@
+import os
 import random
 
 import numpy as np
 import torch
 from visdom import Visdom
 
+import constants as const
+
 
 class VisdomLinePlotter(object):
     def __init__(self, env_name='main', logging_path=None):
         self.viz = Visdom(log_to_filename=logging_path)
+        if os.path.isfile(logging_path):
+            self.viz.replay_log(logging_path)
         self.env = env_name
         self.postfix = ''
         self.plots = {}
@@ -83,7 +88,44 @@ def is_cuda(module):
     return next(module.parameters()).is_cuda
 
 
-def fix_random_seed(seed=1905):
+def fix_random_seed(seed=const.RANDOM_SEED):
     random.seed(seed)
     np.random.seed(seed)
     torch.random.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+def save_model(output_path, model, optim, ep):
+    state = {
+        'model': model.state_dict(),
+        'optim': optim.state_dict(),
+        'ep': ep + 1,
+    }
+    torch.save(state, output_path)
+
+
+def load_model(path, model, optim=None):
+    state_dict = torch.load(path)
+    model.load_state_dict(state_dict['model'])
+    if optim is not None:
+        optim.load_state_idct(state_dict['optim'])
+    return state_dict['ep']
+
+
+def split_dev_data(train_indexes, batch_size, random_seed):
+    random.seed(random_seed)
+    if len(train_indexes) % batch_size > 0:
+        extra_data_num = batch_size - len(train_indexes) % batch_size
+        random.shuffle(train_indexes)
+        extra_data = train_indexes[:extra_data_num]
+        new_data = train_indexes + extra_data
+    else:
+        new_data = train_indexes
+    random.shuffle(new_data)
+    n_batches = len(new_data) / batch_size
+    n_train_batches = int(round(n_batches * 0.9))
+    train_indexes = new_data[:n_train_batches * batch_size]
+    dev_indexes = new_data[n_train_batches * batch_size:]
+
+    return train_indexes, dev_indexes
