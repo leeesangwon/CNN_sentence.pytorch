@@ -1,0 +1,1 @@
+from .pretrained_word2vec import PretrainedWord2Vec

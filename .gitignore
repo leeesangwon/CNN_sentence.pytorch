@@ -106,5 +106,7 @@ venv.bak/
 # PyCharm
 .idea/
 
-# data
-GoogleNews-vectors-negative300.bin
+# custom
+resource/
+ckpt/
+logs/
