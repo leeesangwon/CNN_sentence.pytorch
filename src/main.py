@@ -116,6 +116,7 @@ def main():
 
         # evaluation
         utils.load_model(output_path, cnn)
+        find_most_similar_words(cnn)
         accuracy = eval(cnn, test_loader)
         print('cross_val:', cv, '\taccuracy:', accuracy)
 
@@ -178,6 +179,27 @@ def eval(model, dataloader):
             correct += (labels == preds.argmax(dim=1)).sum().item()
     accuracy = 100 * correct / total
     return accuracy
+
+
+def find_most_similar_words(model):
+    for word in ['bad', 'good', "n't", '!', ',']:
+        print(word, ':\t', _find_most_similar_words(model, word))
+
+
+def _find_most_similar_words(model, target_word):
+    model.eval()
+    with torch.no_grad():
+        embeddings = model.sentence2mat.index2vec.weight.data  # (# words, 300)
+        word_vec = model.sentence2mat([target_word])  # (1, 300)
+
+        cos = torch.nn.CosineSimilarity()
+        topk_idx = cos(embeddings, word_vec).topk(5)[1]  # [0]: values, [1]: indexes
+        topk_idx = topk_idx[1:]  # remove target_word
+
+        index2word = {i: w for w, i in model.sentence2mat.word2index.items()}
+        most_similar_words = [index2word[int(i)] for i in topk_idx]
+
+        return most_similar_words
 
 
 if __name__ == "__main__":
